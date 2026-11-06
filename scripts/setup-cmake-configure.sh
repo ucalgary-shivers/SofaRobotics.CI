@@ -1,4 +1,4 @@
-"${{ inputs.python_version }}" #!/bin/bash
+#!/bin/bash
 
 set -euo pipefail # Exit on error, unset variable, or pipe failure
 
