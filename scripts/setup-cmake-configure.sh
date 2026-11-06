@@ -24,6 +24,8 @@ echo "BUILD_DIR = $BUILD_DIR"
 echo "SRC_DIR = $SRC_DIR"
 echo "PLUGINS_DIR = $PLUGINS_DIR"
 echo "PYTHON_VERSION = $PYTHON_VERSION"
+echo "EIGEN3_ROOT = $EIGEN3_ROOT"
+echo "BOOST_ROOT = $BOOST_ROOT"
 echo "-------------------------------------------------"
 
 #############
