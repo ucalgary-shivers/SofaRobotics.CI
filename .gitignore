@@ -1,1 +1,9 @@
+.DS_Store
+/build
+/cmake-output.txt
+/cpython*.tar.gz
+/src
+/plugins
+/python
 /scripts/setup-variables.sh
+/tools
