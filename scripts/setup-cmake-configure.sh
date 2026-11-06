@@ -19,6 +19,8 @@ fi
 
 os="$(uname -s)"
 
+source ./scripts/setup-variables.sh
+
 echo "--------------- setup-cmake-configure.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "SRC_DIR = $SRC_DIR"

@@ -68,10 +68,6 @@ runs:
         shell: bash
         run: ./scripts/setup-runner.sh
 
-      - name: Setup Variables
-        shell: bash
-        run: source ./scripts/setup-variables.sh
-
       - name: Configure
         shell: bash
         run: ./scripts/setup-cmake-configure.sh build src plugins "${{ inputs.python_version }}" 
