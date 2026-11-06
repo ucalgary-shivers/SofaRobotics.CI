@@ -66,7 +66,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: release-${{ github.ref_name }}
-          RELEASE_REPO: SofaComplianceRobotics/SofaRobotics.CI
+          RELEASE_REPO: $GITHUB_REPOSITORY
         run: |
           echo "Uploading release ${RELEASE_TAG}"
           if gh release view "${RELEASE_TAG}" --repo "${RELEASE_REPO}" >/dev/null 2>&1; then
