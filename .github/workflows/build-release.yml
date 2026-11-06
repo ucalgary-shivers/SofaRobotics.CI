@@ -41,6 +41,7 @@ jobs:
         uses: ./
         with:
           os: ${{matrix.os}}
+          sofa_target: ${{ github.event_name == 'schedule' && 'master' || '586587c' }}
           sofa_version: main-unstable
 
   release:
