@@ -35,8 +35,8 @@ install_windows_dependencies() {
         exit 1
     fi
 
-    echo "export BOOST_ROOT=$(cygpath -w "$BOOST_PATH")" > ./scripts/setup-variables.sh
-    echo "export EIGEN3_ROOT=$(cygpath -w "$EIGEN_INCLUDE")" >> ./scripts/setup-variables.sh
+    echo "export BOOST_ROOT=$(cygpath -w \"$BOOST_PATH\")" > ./scripts/setup-variables.sh
+    echo "export EIGEN3_ROOT=$(cygpath -w \"$EIGEN_INCLUDE\")" >> ./scripts/setup-variables.sh
 }
 
 install_macos_dependencies() {
