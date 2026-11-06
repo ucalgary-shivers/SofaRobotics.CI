@@ -49,7 +49,7 @@ install_macos_dependencies() {
 
     echo "export BOOST_ROOT=$BOOST_PATH" > ./scripts/setup-variables.sh
     echo "export EIGEN3_ROOT=$EIGEN_INCLUDE" >> ./scripts/setup-variables.sh
- 
+} 
 
 # Install build tools
 os="$(uname -s)"
@@ -79,6 +79,8 @@ case "$os" in
         exit 1
         ;;
     esac
+
+chmod +x ./scripts/setup-variables.sh
 
 # Python dependencies
 PYTHONNOUSERSITE=1 ${python_exe} -m pip install --upgrade pip
