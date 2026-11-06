@@ -80,6 +80,10 @@ runs:
         shell: bash
         run: ./scripts/setup-ninja-compile.sh build
 
+      - name: Package
+        shell: bash
+        run: ./scripts/setup-ninja-package.sh build
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -20,4 +20,4 @@ echo "--------------- setup-ninja-compile.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "-------------------------------------------------"
 
-ninja -C $BUILD_DIR package
+ninja -C $BUILD_DIR
