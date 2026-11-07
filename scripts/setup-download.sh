@@ -55,11 +55,45 @@ validate_python_version "$python_version"
 os="$(uname -s)"
 
 # Clone sofa repository into src and use Compliance Robotics postinstall-fixup
-git clone https://github.com/sofa-framework/sofa.git src
+sofa="https://github.com/sofa-framework/sofa.git"
+if [ -d "src" ]; then
+    echo "SOFA already cloned."
+    pushd src
+    origin=$(git remote get-url origin)
+    if [ ! $origin = $sofa ]; then
+        echo Updating origin from $origin to $sofa
+        Da $sofa
+        git fetch origin
+        git reset HEAD --hard
+        git checkout origin
+    fi
+    popd
+else
+    git clone $sofa src
+fi 
 git -C src checkout "$sofa_target"
-git clone https://github.com/SofaComplianceRobotics/SofaRobotics.CI.Tools.git tools
-rm -r src/tools/postinstall-fixup
-mv tools/postinstall-fixup src/tools/postinstall-fixup
+
+tools="https://github.com/SofaComplianceRobotics/SofaRobotics.CI.Tools.git"
+if [ -d "tools" ]; then
+    echo "SofaRobotics.CI.Tools already cloned."
+    pushd tools
+    origin=$(git remote get-url origin)
+    if [ ! $origin = $tools ]; then
+        echo Updating origin from $origin to $tools
+        git remote set-url origin $tools
+        git fetch origin
+        git reset HEAD --hard
+        git checkout origin
+    fi
+    popd
+else
+    git clone $tools tools
+fi 
+
+if [ -d "src/tools/postinstall-fixup" ]; then
+    rm -r src/tools/postinstall-fixup
+    cp -r tools/postinstall-fixup src/tools/postinstall-fixup
+fi
 
 # Rename project to SOFA-Robotics
 perl -pi -e 'BEGIN { $sofa_version = shift @ARGV } s/CPACK_PACKAGE_NAME "SOFA v\$\{CPACK_PACKAGE_VERSION\}/CPACK_PACKAGE_NAME "SOFA-Robotics-$sofa_version/g' "$sofa_version" src/CMakeLists.txt
@@ -90,7 +124,22 @@ echo "$plugins_repos" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read 
     fi
     
     echo "Cloning plugin $plugin_name from $repo at $head into plugins/$plugin_name"
-    git clone "$repo" "plugins/$plugin_name"
+    tools="https://github.com/SofaComplianceRobotics/SofaRobotics.CI.Tools.git"
+    if [ -d "plugins/$plugin_name" ]; then
+        echo "$repo already cloned in plugins/$plugin_name"
+        pushd plugins/$plugin_name
+        origin=$(git remote get-url origin)
+        if [ ! $origin = $repo ]; then
+            echo Updating origin from $origin to $repo
+            git remote set-url origin $repo
+            git fetch origin
+            git reset HEAD --hard
+            git checkout origin
+        fi
+        popd
+    else
+        git clone "$repo" "plugins/$plugin_name"
+    fi 
     
     if [ -n "$head" ]; then
         git -C "plugins/$plugin_name" checkout "$head"
@@ -103,16 +152,17 @@ done
 download_url=""
 
 os="$(uname -s)"
+release_date="20260901"
 case "$os" in
     Linux)
-        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-${python_version}+20260901-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/${release_date}/cpython-${python_version}+${release_date}-x86_64-unknown-linux-gnu-install_only.tar.gz"
         ;;
 
     MINGW*|MSYS*|CYGWIN*|Windows_NT)
-        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-${python_version}+20260901-x86_64-pc-windows-msvc-install_only.tar.gz"
+        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/${release_date}/cpython-${python_version}+${release_date}-x86_64-pc-windows-msvc-install_only.tar.gz"
         ;;
     Darwin)
-        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-${python_version}+20260901-aarch64-apple-darwin-install_only.tar.gz"
+        download_url="https://github.com/astral-sh/python-build-standalone/releases/download/${release_date}/cpython-${python_version}+${release_date}-aarch64-apple-darwin-install_only.tar.gz"
         ;;
     *)
         echo "Unsupported OS: $os" >&2
@@ -120,11 +170,20 @@ case "$os" in
         ;;
 esac
 
-echo "Downloading Python from $download_url"
-curl -L --fail --show-error -o cpython.tar.gz  "$download_url"
-tar -xf cpython.tar.gz
-mkdir build
-mkdir build/bin
+if [ -f cpython-${python_version}+${release_date}.tar.gz ]; then
+    echo "Python already downloaded from $download_url"
+else
+    echo "Downloading Python from $download_url"
+    curl -L --fail --show-error -o cpython-${python_version}+${release_date}.tar.gz  "$download_url"
+fi
+if [ -d "build/bin" ]; then
+    rm -fr build/bin
+fi
+mkdir -p build/bin
+if [ -d "python" ]; then
+    rm -fr python
+fi
+tar -xf cpython-${python_version}+${release_date}.tar.gz
 mv python build/bin/python
 
 # Download requirements if URL or copy to current folder is not empty

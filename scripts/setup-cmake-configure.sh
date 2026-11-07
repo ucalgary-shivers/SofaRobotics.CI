@@ -1,4 +1,4 @@
-"${{ inputs.python_version }}" #!/bin/bash
+#!/bin/bash
 
 set -euo pipefail # Exit on error, unset variable, or pipe failure
 
@@ -19,11 +19,17 @@ fi
 
 os="$(uname -s)"
 
+source ./scripts/setup-variables.sh
+
 echo "--------------- setup-cmake-configure.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "SRC_DIR = $SRC_DIR"
 echo "PLUGINS_DIR = $PLUGINS_DIR"
 echo "PYTHON_VERSION = $PYTHON_VERSION"
+if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+    echo "EIGEN3_ROOT = $EIGEN3_ROOT"
+    echo "BOOST_ROOT = $BOOST_ROOT"
+fi
 echo "-------------------------------------------------"
 
 #############

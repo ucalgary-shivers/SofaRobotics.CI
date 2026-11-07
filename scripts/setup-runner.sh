@@ -10,6 +10,8 @@ install_linux_dependencies() {
 
     # Install dependencies
     sudo apt -y install libtinyxml2-dev libopengl0 libboost-all-dev libpng-dev libjpeg-dev libtiff-dev libglew-dev zlib1g-dev xorg-dev libgtk-3-dev libeigen3-dev
+
+    echo "" > ./scripts/setup-variables.sh
 }
 
 install_windows_dependencies() {
@@ -33,21 +35,21 @@ install_windows_dependencies() {
         exit 1
     fi
 
-    echo "BOOST_ROOT=$(cygpath -w "$BOOST_PATH")" >> "$GITHUB_ENV"
-    echo "EIGEN3_ROOT=$(cygpath -w "$EIGEN_INCLUDE")" >> "$GITHUB_ENV"
+    echo "export BOOST_ROOT=\"$(cygpath -m $BOOST_PATH)\"" > ./scripts/setup-variables.sh
+    echo "export EIGEN3_ROOT=\"$(cygpath -m $EIGEN_INCLUDE)\"" >> ./scripts/setup-variables.sh
 }
 
 install_macos_dependencies() {
     # Install dependencies using Homebrew
-    brew install boost eigen ninja tinyxml2 libpng libjpeg libtiff glew
+    brew install -y boost eigen ninja tinyxml2 libpng libjpeg libtiff glew
 
     # Set environment variables for Boost and Eigen
     BOOST_PATH=$(brew --prefix boost)
     EIGEN_INCLUDE=$(brew --prefix eigen)/include/eigen3
 
-    echo "BOOST_ROOT=$BOOST_PATH" >> "$GITHUB_ENV"
-    echo "EIGEN3_ROOT=$EIGEN_INCLUDE" >> "$GITHUB_ENV"
-}
+    echo "export BOOST_ROOT=$BOOST_PATH" > ./scripts/setup-variables.sh
+    echo "export EIGEN3_ROOT=$EIGEN_INCLUDE" >> ./scripts/setup-variables.sh
+} 
 
 # Install build tools
 os="$(uname -s)"
@@ -77,6 +79,8 @@ case "$os" in
         exit 1
         ;;
     esac
+
+chmod +x ./scripts/setup-variables.sh
 
 # Python dependencies
 PYTHONNOUSERSITE=1 ${python_exe} -m pip install --upgrade pip
