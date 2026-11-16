@@ -55,7 +55,7 @@ validate_python_version "$python_version"
 os="$(uname -s)"
 
 # Clone sofa repository into src and use Compliance Robotics postinstall-fixup
-sofa="https://github.com/sofa-framework/sofa.git"
+sofa="https://github.com/ucalgary-shivers/sofa.git"
 if [ -d "src" ]; then
     echo "SOFA already cloned."
     pushd src
