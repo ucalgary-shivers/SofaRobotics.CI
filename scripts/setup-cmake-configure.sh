@@ -3,7 +3,7 @@
 set -euo pipefail # Exit on error, unset variable, or pipe failure
 
 usage() {
-    echo "Usage: setup-cmake-configure.sh <build-dir> <src-dir> <plugins-dir> <python-version>"
+    echo "Usage: setup-cmake-configure.sh <build-dir> <src-dir> <plugins-dir> <python-version> <optional: emscripten>"
 }
 
 if [ "$#" -ge 4 ]; then
@@ -11,22 +11,35 @@ if [ "$#" -ge 4 ]; then
     SRC_DIR="$(cd "$2" && pwd)"
     PLUGINS_DIR="$(cd "$3" && pwd)"
     PYTHON_VERSION="$4"
-    PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
-    PYTHON_DIR="bin/python"
+    EMSCRIPTEN=""
+    if [ "$#" -ge 5 ]; then
+        if [[ ! "$5" == "" ]]; then 
+            EMSCRIPTEN="emcmake"
+        fi
+    fi
 else
     usage; exit 1
 fi
 
+PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
+PYTHON_DIR="bin/python"
 os="$(uname -s)"
 
 source ./scripts/setup-variables.sh
+
+if [ ! $EMSCRIPTEN = "" ]; then
+    echo "With Emscripten"
+    source emsdk/emsdk_env.sh
+else
+    echo "Without Emscripten"
+fi
 
 echo "--------------- setup-cmake-configure.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "SRC_DIR = $SRC_DIR"
 echo "PLUGINS_DIR = $PLUGINS_DIR"
 echo "PYTHON_VERSION = $PYTHON_VERSION"
-if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+if [[ "$os" == Darwin || "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     echo "EIGEN3_ROOT = $EIGEN3_ROOT"
     echo "BOOST_ROOT = $BOOST_ROOT"
 fi
@@ -45,7 +58,10 @@ add-cmake-option() {
 # Build type and compiler
 add-cmake-option "-DCMAKE_BUILD_TYPE=Release"
 
-if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+if [ ! $EMSCRIPTEN = "" ]; then
+    # do not set compilers
+    echo "Emscripten compilers set with source emsdk/emsdk_env.sh"
+elif [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DCMAKE_C_COMPILER=cl"
     add-cmake-option "-DCMAKE_CXX_COMPILER=cl"
 else
@@ -56,11 +72,21 @@ fi
 # Python
 if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/python.exe"
+elif [ ! $EMSCRIPTEN = "" ]; then
+    add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/bin/python3"
+    # if [ ! -f $BUILD_DIR/bin/python/bin/pyodide ]; then
+    #     echo Error: pyodide missing for emscripten. 
+    #     echo In $BUILD_DIR/bin/python/ run:
+    #     echo $ ./bin/pip3 install pyodide-build
+    #     echo $ ./bin/pyodide xbuildenv install
+    #     exit 1
+    # fi
+    # add-cmake-option "-DPython_INCLUDE_DIR=$($BUILD_DIR/bin/python/bin/pyodide config get python_include_dir)"
 else
     add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/bin/python3"
 fi
 
-if [[ "$os" == Darwin ]]; then
+if [[ "$os" == Darwin && $EMSCRIPTEN == "" ]]; then
     add-cmake-option "-DCMAKE_CXX_FLAGS=-flto=thin"
     add-cmake-option "-DCMAKE_SHARED_LINKER_FLAGS=-flto=thin"
     add-cmake-option "-DCMAKE_EXE_LINKER_FLAGS=-flto=thin"
@@ -80,7 +106,7 @@ add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
 add-cmake-option "-DSOFA_WITH_OPENGL=ON"
 
 # Dependencies
-if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+if [[ "$os" == Darwin || "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DEIGEN3_ROOT=$EIGEN3_ROOT"
     add-cmake-option "-DBOOST_ROOT=$BOOST_ROOT"
 fi
@@ -103,7 +129,18 @@ add-cmake-option "-DCPACK_BINARY_ZIP=ON"
 add-cmake-option "--preset=minimal"
 
 #############
+# Fixes     #
+#############
+
+if [ ! $EMSCRIPTEN = "" ]; then
+    # Find Sofa.Config with sofa_find_package in CMakeLists.txt files under src
+    find src plugins -name "CMakeLists.txt" -exec perl -i -pe 's/^find_package\(Sofa/sofa_find_package(Sofa/' {} +
+    # Deactivate SofaPython3 plugin
+    find plugins -name "CMakeLists.txt" -exec perl -i -pe 's/SofaPython3 ON/SofaPython3 OFF/' {} +
+fi
+
+#############
 # Configure #
 #############
 
-cmake -GNinja $cmake_options -B "$BUILD_DIR" -S "$SRC_DIR" | tee -a "cmake-output.txt"
+$EMSCRIPTEN cmake -GNinja $cmake_options -B "$BUILD_DIR" -S "$SRC_DIR" | tee -a "cmake-output.txt"
