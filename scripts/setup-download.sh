@@ -62,7 +62,7 @@ if [ -d "src" ]; then
     origin=$(git remote get-url origin)
     if [ ! $origin = $sofa ]; then
         echo Updating origin from $origin to $sofa
-        Da $sofa
+        git remote set-url origin $sofa
         git fetch origin
         git reset HEAD --hard
         git checkout origin
