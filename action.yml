@@ -24,11 +24,11 @@ inputs:
     default: |
       {"https://github.com/sofa-framework/BeamAdapter.git": "master",
       "https://github.com/SofaComplianceRobotics/SofaPython3.git": "pr_bundlepython",
-      "https://github.com/SofaDefrost/SoftRobots.git": "master",
-      "https://github.com/SofaDefrost/SoftRobots.Inverse.git": "main",
+      "https://github.com/ucalgary-shivers/SoftRobots.git": "emscripten",
+      "https://github.com/ucalgary-shivers/SoftRobots.Inverse.git": "emscripten",
       "https://github.com/SofaDefrost/Cosserat.git": "master",
       "https://github.com/SofaDefrost/STLIB.git": "master",
-      "https://github.com/SofaComplianceRobotics/SofaGLFW.git": "robotics"
+      "https://github.com/ucalgary-shivers/SofaGLFW.git": "emscripten"
       }
   python_version:
     description: 'Python version to use (ex: 3.10.4)'
