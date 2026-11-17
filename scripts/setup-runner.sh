@@ -11,7 +11,9 @@ install_linux_dependencies() {
     # Install dependencies
     sudo apt -y install libtinyxml2-dev libopengl0 libboost-all-dev libpng-dev libjpeg-dev libtiff-dev libglew-dev zlib1g-dev xorg-dev libgtk-3-dev libeigen3-dev
 
-    echo "" > ./scripts/setup-variables.sh
+    # echo "" > ./scripts/setup-variables.sh
+    echo "export BOOST_ROOT=/usr/include/boost/" > ./scripts/setup-variables.sh
+    echo "export EIGEN3_ROOT=/usr/include/eigen3/" >> ./scripts/setup-variables.sh
 }
 
 install_windows_dependencies() {
