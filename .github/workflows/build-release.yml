@@ -72,24 +72,25 @@ jobs:
         run: |
           ls -a ./artifact
           ls -a ./artifact/SOFA-Robotics*
-          unzip -o ./artifact/SOFA-Robotics*/SOFA-Robotics*.zip -d ./artifact || echo "Nothing to extract"
-          ls -a ./artifact
-      - name: Cleanup artifact
+          mkdir -p ./distribution
+          unzip -o ./artifact/SOFA-Robotics*/SOFA-Robotics*.zip -d ./distribution || echo "Nothing to extract"
+          ls -a ./distribution
+      - name: Cleanup distribution
         run: |
           ls -a
-          cd ./artifact/SOFA-Robotics*
-          rm -fr bin/python
+          cd ./distribution/SOFA-Robotics*
+          rm -fr bin/python || echo "No python distribution to cleanup"
           mv bin ..
           mv lib ..
           echo Skipping plugins to save github pages space until loading libraries works
           # mv plugins ..
-          cd ./artifact
+          cd ./distribution
           rm -fr SOFA-Robotics*
           ls -a
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1
         with:
-          source-dir: ./artifact
+          source-dir: ./distribution
 
   remove-preview:
     # run only from pull requests
