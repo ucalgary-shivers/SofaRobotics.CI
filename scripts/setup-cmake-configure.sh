@@ -25,6 +25,7 @@ PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
 PYTHON_DIR="bin/python"
 os="$(uname -s)"
 
+cat ./scripts/setup-variables.sh
 source ./scripts/setup-variables.sh
 
 if [ ! $EMSCRIPTEN = "" ]; then
