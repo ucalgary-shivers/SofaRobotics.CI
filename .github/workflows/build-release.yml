@@ -72,7 +72,7 @@ jobs:
         run: |
           ls -a ./artifact
           ls -a ./artifact/SOFA-Robotics*
-          unzip -o ./artifact/SOFA-Robotics*.zip -d ./artifact || echo "Nothing to extract"
+          unzip -o ./artifact/SOFA-Robotics*/SOFA-Robotics*.zip -d ./artifact || echo "Nothing to extract"
           ls -a ./artifact
       - name: Cleanup artifact
         run: |
