@@ -28,9 +28,9 @@ jobs:
         os: [ubuntu-22.04, windows-2025, macos-15]
         emscripten: [true, false]
         exclude:
-          - os: windows-2025
+          - os: ubuntu-22.04
             emscripten: true
-          - os: macos-15
+          - os: windows-2025
             emscripten: true
 
     steps:
