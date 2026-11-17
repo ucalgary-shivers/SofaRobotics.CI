@@ -84,7 +84,7 @@ jobs:
           mv lib ..
           echo Skipping plugins to save github pages space until loading libraries works
           # mv plugins ..
-          cd ./distribution
+          cd ..
           rm -fr SOFA-Robotics*
           ls -a
       - name: Deploy preview
