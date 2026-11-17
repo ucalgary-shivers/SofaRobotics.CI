@@ -51,6 +51,59 @@ jobs:
           sofa_version: main-unstable
           use_emscripten: matrix.emscripten
 
+  deploy-preview:
+    # run only from pull requests
+    if: github.event_name == 'pull_request' && contains(fromJSON('["opened", "reopened", "synchronize"]'), github.event.action) 
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: SOFA-Robotics_*_emscripten*
+          path: ./artifact
+      - name: Extract artifact
+        run: |
+          ls -a
+          unzip -o ./artifact/SOFA-Robotics-*.zip -d ./artifact
+          ls -a
+      - name: Cleanup artifact
+        run: |
+          ls -a
+          cd ./artifact/SOFA-Robotics-*
+          rm -fr bin/python
+          mv bin ..
+          mv lib ..
+          mv plugins ..
+          rm -fr SOFA-Robotics-*
+          ls -a
+      - name: Deploy preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./artifact
+
+  remove-preview:
+    # run only from pull requests
+    if: github.event_name == 'pull_request' && contains('closed', github.event.action) 
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Remove preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          action: remove
+
   release:
     name: Create Release
     runs-on: ubuntu-22.04
