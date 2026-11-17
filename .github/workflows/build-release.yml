@@ -71,18 +71,18 @@ jobs:
       - name: Extract artifact
         run: |
           ls -a ./artifact
-          ls -a ./artifact/SOFA-Robotics-*
-          unzip -o ./artifact/SOFA-Robotics-*.zip -d ./artifact || echo "Nothing to extract"
+          ls -a ./artifact/SOFA-Robotics*
+          unzip -o ./artifact/SOFA-Robotics*.zip -d ./artifact || echo "Nothing to extract"
           ls -a ./artifact
       - name: Cleanup artifact
         run: |
           ls -a
-          cd ./artifact/SOFA-Robotics-*
+          cd ./artifact/SOFA-Robotics*
           rm -fr bin/python
           mv bin ..
           mv lib ..
           mv plugins ..
-          rm -fr SOFA-Robotics-*
+          rm -fr SOFA-Robotics*
           ls -a
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1
