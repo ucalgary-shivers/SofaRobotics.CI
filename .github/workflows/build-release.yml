@@ -70,9 +70,10 @@ jobs:
           path: ./artifact
       - name: Extract artifact
         run: |
-          ls -a
-          unzip -o ./artifact/SOFA-Robotics-*.zip -d ./artifact
-          ls -a
+          ls -a ./artifact
+          ls -a ./artifact/SOFA-Robotics-*
+          unzip -o ./artifact/SOFA-Robotics-*.zip -d ./artifact || echo "Nothing to extract"
+          ls -a ./artifact
       - name: Cleanup artifact
         run: |
           ls -a
