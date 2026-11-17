@@ -97,7 +97,7 @@ runs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SOFA-Robotics_${{ inputs.os }}
+          name: SOFA-Robotics_${{ inputs.os }}${{ inputs.use_emscripten == 'false' && '' || '_emscripten' }}"
           path: build/SOFA*.zip
 
       
