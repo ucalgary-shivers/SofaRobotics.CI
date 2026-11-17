@@ -12,8 +12,12 @@ else
     usage; exit 1
 fi
 
+echo "--------------- setup-ninja-compile.sh default parallel jobs ---------------"
+ninja -h 2>&1 | grep parallel || echo
+echo "-------------------------------------------------"
+
 echo "--------------- setup-ninja-compile.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "-------------------------------------------------"
 
-ninja -C $BUILD_DIR package
+ninja -C $BUILD_DIR

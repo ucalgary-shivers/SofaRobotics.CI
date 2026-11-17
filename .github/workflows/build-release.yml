@@ -18,14 +18,20 @@ env:
 
 jobs:
   build:
-    name: Build on ${{matrix.os}}
+    name: Build on ${{matrix.os}} ${{matrix.emscripten == 'true' && '(emscripten)' || '' }}
     runs-on: ${{matrix.os}}
     permissions: 
       contents: write
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2025, macos-15]
+        os: [macos-15] # [ubuntu-22.04, windows-2025, macos-15]
+        emscripten: ['true'] # ['true', 'false']
+        # exclude:
+        #   - os: ubuntu-22.04
+        #     emscripten: 'true'
+        #   - os: windows-2025
+        #     emscripten: 'true'
 
     steps:
       # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
@@ -41,7 +47,66 @@ jobs:
         uses: ./
         with:
           os: ${{matrix.os}}
+          sofa_target: emscripten
           sofa_version: main-unstable
+          use_emscripten: ${{matrix.emscripten}}
+
+  deploy-preview:
+    # run only from pull requests
+    if: github.event_name == 'pull_request' && contains(fromJSON('["opened", "reopened", "synchronize"]'), github.event.action) 
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: SOFA-Robotics_*_emscripten*
+          path: ./artifact
+      - name: Extract artifact
+        run: |
+          ls -a ./artifact
+          ls -a ./artifact/SOFA-Robotics*
+          mkdir -p ./distribution
+          unzip -o ./artifact/SOFA-Robotics*/SOFA-Robotics*.zip -d ./distribution || echo "Nothing to extract"
+          ls -a ./distribution
+      - name: Cleanup distribution
+        run: |
+          ls -a
+          cd ./distribution/SOFA-Robotics*
+          rm -fr bin/python || echo "No python distribution to cleanup"
+          mv bin ..
+          mv lib ..
+          echo Skipping plugins to save github pages space until loading libraries works
+          # mv plugins ..
+          cd ..
+          rm -fr SOFA-Robotics*
+          ls -a
+      - name: Deploy preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./distribution
+
+  remove-preview:
+    # run only from pull requests
+    if: github.event_name == 'pull_request' && contains('closed', github.event.action) 
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Remove preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          action: remove
 
   release:
     name: Create Release
@@ -66,7 +131,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: release-${{ github.ref_name }}
-          RELEASE_REPO: SofaComplianceRobotics/SofaRobotics.CI
+          RELEASE_REPO: $GITHUB_REPOSITORY
         run: |
           echo "Uploading release ${RELEASE_TAG}"
           if gh release view "${RELEASE_TAG}" --repo "${RELEASE_REPO}" >/dev/null 2>&1; then

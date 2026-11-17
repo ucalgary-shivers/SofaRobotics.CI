@@ -1,0 +1,10 @@
+.DS_Store
+/build*
+/cmake-output.txt
+/cpython*.tar.gz
+/emsdk
+/src
+/plugins/CMakeLists.txt
+/python
+/scripts/setup-variables.sh
+/tools
