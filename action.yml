@@ -83,7 +83,7 @@ runs:
 
       - name: Configure
         shell: bash
-        run: ./scripts/setup-cmake-configure.sh build src plugins "${{ inputs.python_version }}" ${{ inputs.use_emscripten == 'false' && '' || 'emscripten' }}
+        run: ./scripts/setup-cmake-configure.sh build src plugins "${{ inputs.python_version }}" ${{ inputs.use_emscripten != 'false' && 'emscripten' || '' }}
         
       - name: Compile
         shell: bash
