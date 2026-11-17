@@ -29,9 +29,9 @@ jobs:
         emscripten: ['true', 'false']
         exclude:
           - os: ubuntu-22.04
-            emscripten: true
+            emscripten: 'true'
           - os: windows-2025
-            emscripten: true
+            emscripten: 'true'
 
     steps:
       # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
