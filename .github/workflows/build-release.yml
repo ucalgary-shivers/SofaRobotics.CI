@@ -26,6 +26,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-2025, macos-15]
+        emscripten: [true, false]
+        exclude:
+          - os: windows-2025
+            emscripten: true
+          - os: macos-15
+            emscripten: true
 
     steps:
       # Checks-out the repository under $GITHUB_WORKSPACE, so the job can access it
@@ -43,6 +49,7 @@ jobs:
           os: ${{matrix.os}}
           sofa_target: emscripten
           sofa_version: main-unstable
+          use_emscripten: matrix.emscripten
 
   release:
     name: Create Release
