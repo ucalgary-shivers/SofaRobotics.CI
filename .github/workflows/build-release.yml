@@ -82,6 +82,7 @@ jobs:
           mv bin ..
           mv lib ..
           mv plugins ..
+          cd ./artifact
           rm -fr SOFA-Robotics*
           ls -a
       - name: Deploy preview
