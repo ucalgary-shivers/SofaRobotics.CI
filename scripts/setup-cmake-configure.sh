@@ -136,6 +136,8 @@ add-cmake-option "--preset=minimal"
 if [ ! $EMSCRIPTEN = "" ]; then
     # Find Sofa.Config with sofa_find_package in CMakeLists.txt files under src
     find src plugins -name "CMakeLists.txt" -exec perl -i -pe 's/^find_package\(Sofa/sofa_find_package(Sofa/' {} +
+    # Deactivate executables
+    perl -i -pe 's/add_subdirectory\(sceneCreatorExamples/sofa_add_subdirectory(application sceneCreatorExamples OFF/' src/applications/plugins/SceneCreator/CMakeLists.txt
     # Deactivate SofaPython3 plugin
     find plugins -name "CMakeLists.txt" -exec perl -i -pe 's/SofaPython3 ON/SofaPython3 OFF/' {} +
 fi
