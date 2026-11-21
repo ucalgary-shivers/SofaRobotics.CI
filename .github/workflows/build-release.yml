@@ -80,8 +80,8 @@ jobs:
           ls -a
           cd ./distribution/SOFA-Robotics*
           rm -fr bin/python || echo "No python distribution to cleanup"
-          mv bin ..
-          mv lib ..
+          mv bin/*.* ..
+          mv lib/*.* ..
           echo Skipping plugins to save github pages space until loading libraries works
           # mv plugins ..
           cd ..
