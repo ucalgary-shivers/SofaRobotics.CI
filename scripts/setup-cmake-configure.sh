@@ -150,4 +150,5 @@ fi
 # Configure #
 #############
 
+export EMCC_SKIP_SANITY_CHECK=1
 $EMSCRIPTEN cmake -GNinja $cmake_options -B "$BUILD_DIR" -S "$SRC_DIR" | tee -a "cmake-output.txt"
