@@ -110,6 +110,11 @@ fi
 # fi
 add-cmake-option "-DSOFA_WITH_OPENGL=ON"
 
+# Applications
+if [ ! $EMSCRIPTEN = "" ]; then
+    add-cmake-option "-DAPPLICATION_RUNSOFAGLFW=OFF"
+fi
+
 # Dependencies
 if [[ "$os" == Darwin || "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DEIGEN3_ROOT=$EIGEN3_ROOT"
