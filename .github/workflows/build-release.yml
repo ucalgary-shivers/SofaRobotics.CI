@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15] # [ubuntu-22.04, windows-2025, macos-15]
+        os: [ubuntu-26.04] # [ubuntu-22.04, windows-2025, macos-15]
         emscripten: ['true'] # ['true', 'false']
         # exclude:
         #   - os: ubuntu-22.04
