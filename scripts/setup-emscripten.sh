@@ -32,6 +32,7 @@ if [ -d "emsdk" ]; then
         git reset HEAD --hard
         git checkout origin
     fi
+    git pull
     popd
 else
     git clone $emsdk emsdk
