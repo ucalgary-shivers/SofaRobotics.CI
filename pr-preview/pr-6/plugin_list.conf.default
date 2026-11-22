@@ -70,5 +70,4 @@ Sofa.GL.Component NO_VERSION
 Sofa.GUI.Component NO_VERSION
 Sofa.GUI.Batch NO_VERSION
 SceneCreator NO_VERSION
-ArticulatedSystemPlugin NO_VERSION
 MultiThreading NO_VERSION
