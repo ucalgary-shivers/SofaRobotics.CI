@@ -102,12 +102,12 @@ else
 fi
 
 # Plugins
-if [ ! $EMSCRIPTEN = "" ]; then
-    echo "Temporary deactivated external plugins for faster CI debugging."
-else
+# if [ ! $EMSCRIPTEN = "" ]; then
+#     echo "Temporary deactivated external plugins for faster CI debugging."
+# else
     add-cmake-option "-DSOFA_EXTERNAL_DIRECTORIES=$PLUGINS_DIR"
     add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
-fi
+# fi
 add-cmake-option "-DSOFA_WITH_OPENGL=ON"
 
 # Dependencies
@@ -148,9 +148,14 @@ if [ ! $EMSCRIPTEN = "" ]; then
     popd
     # Deactivate executables
     perl -i -pe 's/add_subdirectory\(sceneCreatorExamples/sofa_add_subdirectory(application sceneCreatorExamples OFF/' src/applications/plugins/SceneCreator/CMakeLists.txt
-    # Deactivate SofaPython3 plugin
-    # plugins is in .gitignore
-    find plugins -name "CMakeLists.txt" -exec perl -i -pe 's/SofaPython3 ON/SofaPython3 OFF/' {} +
+    # Deactivate plugins
+    for plugin in BeamAdapter SofaPython3 Cosserat STLIB; do
+        find plugins -name "CMakeLists.txt" -exec perl -i -pe "s/${plugin} ON/${plugin} OFF/" {} +
+    done
+    # Activate plugins
+    for plugin in SoftRobots SoftRobots.Inverse SofaGLFW; do
+        find plugins -name "CMakeLists.txt" -exec perl -i -pe "s/${plugin} OFF/${plugin} ON/" {} +
+    done
 fi
 
 #############
