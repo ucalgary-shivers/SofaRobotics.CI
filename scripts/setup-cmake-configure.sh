@@ -102,8 +102,12 @@ else
 fi
 
 # Plugins
-add-cmake-option "-DSOFA_EXTERNAL_DIRECTORIES=$PLUGINS_DIR"
-add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
+if [ ! $EMSCRIPTEN = "" ]; then
+    echo "Temporary deactivated external plugins for faster CI debugging."
+else
+    add-cmake-option "-DSOFA_EXTERNAL_DIRECTORIES=$PLUGINS_DIR"
+    add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
+fi
 add-cmake-option "-DSOFA_WITH_OPENGL=ON"
 
 # Dependencies
