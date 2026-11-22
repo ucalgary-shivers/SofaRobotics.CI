@@ -1,7 +1,0 @@
-prefix=/Users/runner/work/SofaRobotics.CI/SofaRobotics.CI/build/install
-includedir=${prefix}/include
-
-Name: cxxopts
-Description: 
-Version: 3.1.1
-Cflags: -I${includedir}
