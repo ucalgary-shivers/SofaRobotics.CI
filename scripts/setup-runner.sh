@@ -6,7 +6,7 @@ install_linux_dependencies() {
     sudo apt-get update 
 
     # Install build tools
-    sudo apt -y install build-essential software-properties-common clang-14 cmake cmake-gui ninja-build ccache
+    sudo apt -y install build-essential software-properties-common clang cmake cmake-gui ninja-build ccache
 
     # Install dependencies
     sudo apt -y install libtinyxml2-dev libopengl0 libboost-all-dev libpng-dev libjpeg-dev libtiff-dev libglew-dev zlib1g-dev xorg-dev libgtk-3-dev libeigen3-dev
