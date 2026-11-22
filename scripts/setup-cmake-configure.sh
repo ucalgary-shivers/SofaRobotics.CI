@@ -138,11 +138,18 @@ add-cmake-option "--preset=minimal"
 #############
 
 if [ ! $EMSCRIPTEN = "" ]; then
-    # Find Sofa.Config with sofa_find_package in CMakeLists.txt files under src
-    find src plugins -name "CMakeLists.txt" -exec perl -i -pe 's/^find_package\(Sofa/sofa_find_package(Sofa/' {} +
+    # Emscripten fails to find packages outside emsdk sysroot paths due to its CMake cross-compiling toolchain 
+    # - Patch CMakeLists.txt files under src and plugins to find Sofa packages with sofa_find_package
+    find src plugins -name "CMakeLists.txt" -exec perl -i -pe 's/^find_package(\(Sofa[^\)]+\))/sofa_find_package\1 # git-ignore-line/' {} +
+    # - Ensure the above patches do not get committed
+    pushd src
+        git config filter.ignoreline.clean "sed -re 's/sofa_find_package(.*) # git-ignore-line/find_package\\1/g'"
+        # Filter active with "CMakeLists.txt filter=ignoreline" in src/.gitattributes
+    popd
     # Deactivate executables
     perl -i -pe 's/add_subdirectory\(sceneCreatorExamples/sofa_add_subdirectory(application sceneCreatorExamples OFF/' src/applications/plugins/SceneCreator/CMakeLists.txt
     # Deactivate SofaPython3 plugin
+    # plugins is in .gitignore
     find plugins -name "CMakeLists.txt" -exec perl -i -pe 's/SofaPython3 ON/SofaPython3 OFF/' {} +
 fi
 
