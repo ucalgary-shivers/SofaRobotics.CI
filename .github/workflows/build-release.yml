@@ -52,8 +52,8 @@ jobs:
           use_emscripten: ${{matrix.emscripten}}
 
   deploy-preview:
-    # run only from pull requests
-    if: github.event_name == 'pull_request' && contains(fromJSON('["opened", "reopened", "synchronize"]'), github.event.action) 
+    # run only from pull requests, and only on emscripten branch until we reduce build files sizes (github pages requires 1GB or less)
+    if: github.event_name == 'pull_request' && contains(fromJSON('["opened", "reopened", "synchronize"]'), github.event.action) && github.head_ref == 'emscripten'
     runs-on: ubuntu-latest
     needs: build
     permissions:
