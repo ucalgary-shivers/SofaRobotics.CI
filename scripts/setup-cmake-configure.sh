@@ -1,9 +1,9 @@
-"${{ inputs.python_version }}" #!/bin/bash
+#!/bin/bash
 
 set -euo pipefail # Exit on error, unset variable, or pipe failure
 
 usage() {
-    echo "Usage: setup-cmake-configure.sh <build-dir> <src-dir> <plugins-dir> <python-version>"
+    echo "Usage: setup-cmake-configure.sh <build-dir> <src-dir> <plugins-dir> <python-version> <optional: emscripten>"
 }
 
 if [ "$#" -ge 4 ]; then
@@ -11,19 +11,39 @@ if [ "$#" -ge 4 ]; then
     SRC_DIR="$(cd "$2" && pwd)"
     PLUGINS_DIR="$(cd "$3" && pwd)"
     PYTHON_VERSION="$4"
-    PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
-    PYTHON_DIR="bin/python"
+    EMSCRIPTEN=""
+    if [ "$#" -ge 5 ]; then
+        if [[ ! "$5" == "" ]]; then 
+            EMSCRIPTEN="emcmake"
+        fi
+    fi
 else
     usage; exit 1
 fi
 
+PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
+PYTHON_DIR="bin/python"
 os="$(uname -s)"
+
+cat ./scripts/setup-variables.sh
+source ./scripts/setup-variables.sh
+
+if [ ! $EMSCRIPTEN = "" ]; then
+    echo "With Emscripten"
+    source emsdk/emsdk_env.sh
+else
+    echo "Without Emscripten"
+fi
 
 echo "--------------- setup-cmake-configure.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "SRC_DIR = $SRC_DIR"
 echo "PLUGINS_DIR = $PLUGINS_DIR"
 echo "PYTHON_VERSION = $PYTHON_VERSION"
+if [[ "$os" == Darwin || "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+    echo "EIGEN3_ROOT = $EIGEN3_ROOT"
+    echo "BOOST_ROOT = $BOOST_ROOT"
+fi
 echo "-------------------------------------------------"
 
 #############
@@ -39,7 +59,10 @@ add-cmake-option() {
 # Build type and compiler
 add-cmake-option "-DCMAKE_BUILD_TYPE=Release"
 
-if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+if [ ! $EMSCRIPTEN = "" ]; then
+    # do not set compilers
+    echo "Emscripten compilers set with source emsdk/emsdk_env.sh"
+elif [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DCMAKE_C_COMPILER=cl"
     add-cmake-option "-DCMAKE_CXX_COMPILER=cl"
 else
@@ -50,11 +73,21 @@ fi
 # Python
 if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/python.exe"
+elif [ ! $EMSCRIPTEN = "" ]; then
+    add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/bin/python3"
+    # if [ ! -f $BUILD_DIR/bin/python/bin/pyodide ]; then
+    #     echo Error: pyodide missing for emscripten. 
+    #     echo In $BUILD_DIR/bin/python/ run:
+    #     echo $ ./bin/pip3 install pyodide-build
+    #     echo $ ./bin/pyodide xbuildenv install
+    #     exit 1
+    # fi
+    # add-cmake-option "-DPython_INCLUDE_DIR=$($BUILD_DIR/bin/python/bin/pyodide config get python_include_dir)"
 else
     add-cmake-option "-DPython_EXECUTABLE=$BUILD_DIR/$PYTHON_DIR/bin/python3"
 fi
 
-if [[ "$os" == Darwin ]]; then
+if [[ "$os" == Darwin && $EMSCRIPTEN == "" ]]; then
     add-cmake-option "-DCMAKE_CXX_FLAGS=-flto=thin"
     add-cmake-option "-DCMAKE_SHARED_LINKER_FLAGS=-flto=thin"
     add-cmake-option "-DCMAKE_EXE_LINKER_FLAGS=-flto=thin"
@@ -69,12 +102,21 @@ else
 fi
 
 # Plugins
-add-cmake-option "-DSOFA_EXTERNAL_DIRECTORIES=$PLUGINS_DIR"
-add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
+# if [ ! $EMSCRIPTEN = "" ]; then
+#     echo "Temporary deactivated external plugins for faster CI debugging."
+# else
+    add-cmake-option "-DSOFA_EXTERNAL_DIRECTORIES=$PLUGINS_DIR"
+    add-cmake-option "-DPLUGIN_ARTICULATEDSYSTEMPLUGIN=ON"
+# fi
 add-cmake-option "-DSOFA_WITH_OPENGL=ON"
 
+# Applications
+if [ ! $EMSCRIPTEN = "" ]; then
+    add-cmake-option "-DAPPLICATION_RUNSOFAGLFW=OFF"
+fi
+
 # Dependencies
-if [[ "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
+if [[ "$os" == Darwin || "$os" == MINGW* || "$os" == MSYS* || "$os" == CYGWIN* || "$os" == Windows_NT ]]; then
     add-cmake-option "-DEIGEN3_ROOT=$EIGEN3_ROOT"
     add-cmake-option "-DBOOST_ROOT=$BOOST_ROOT"
 fi
@@ -97,7 +139,33 @@ add-cmake-option "-DCPACK_BINARY_ZIP=ON"
 add-cmake-option "--preset=minimal"
 
 #############
+# Fixes     #
+#############
+
+if [ ! $EMSCRIPTEN = "" ]; then
+    # Emscripten fails to find packages outside emsdk sysroot paths due to its CMake cross-compiling toolchain 
+    # - Patch CMakeLists.txt files under src and plugins to find Sofa packages with sofa_find_package
+    find src plugins -name "CMakeLists.txt" -exec perl -i -pe 's/^find_package(\(Sofa[^\)]+\))/sofa_find_package\1 # git-ignore-line/' {} +
+    # - Ensure the above patches do not get committed
+    pushd src
+        git config filter.ignoreline.clean "sed -re 's/sofa_find_package(.*) # git-ignore-line/find_package\\1/g'"
+        # Filter active with "CMakeLists.txt filter=ignoreline" in src/.gitattributes
+    popd
+    # Deactivate executables
+    perl -i -pe 's/add_subdirectory\(sceneCreatorExamples/sofa_add_subdirectory(application sceneCreatorExamples OFF/' src/applications/plugins/SceneCreator/CMakeLists.txt
+    # Deactivate plugins
+    for plugin in BeamAdapter SofaPython3 Cosserat STLIB; do
+        find plugins -name "CMakeLists.txt" -exec perl -i -pe "s/${plugin} ON/${plugin} OFF/" {} +
+    done
+    # Activate plugins
+    for plugin in SoftRobots SoftRobots.Inverse SofaGLFW; do
+        find plugins -name "CMakeLists.txt" -exec perl -i -pe "s/${plugin} OFF/${plugin} ON/" {} +
+    done
+fi
+
+#############
 # Configure #
 #############
 
-cmake -GNinja $cmake_options -B "$BUILD_DIR" -S "$SRC_DIR" | tee -a "cmake-output.txt"
+export EMCC_SKIP_SANITY_CHECK=1
+$EMSCRIPTEN cmake -GNinja $cmake_options -B "$BUILD_DIR" -S "$SRC_DIR" | tee -a "cmake-output.txt"

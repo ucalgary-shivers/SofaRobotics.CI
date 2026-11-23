@@ -12,8 +12,14 @@ else
     usage; exit 1
 fi
 
+echo "--------------- setup-ninja-compile.sh default parallel jobs ---------------"
+ninja -h 2>&1 | grep parallel || echo
+echo "-------------------------------------------------"
+
 echo "--------------- setup-ninja-compile.sh vars ---------------"
 echo "BUILD_DIR = $BUILD_DIR"
 echo "-------------------------------------------------"
 
-ninja -C $BUILD_DIR package
+export EMCC_SKIP_SANITY_CHECK=1
+export NODE_OPTIONS=--max_old_space_size=7000 # max 7GB for macos-15 arm64
+ninja -C $BUILD_DIR
