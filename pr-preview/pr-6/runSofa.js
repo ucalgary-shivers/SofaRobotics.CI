@@ -1,3 +1,10 @@
+// This code implements the `-sMODULARIZE` settings by taking the generated
+// JS program code (INNER_JS_CODE) and wrapping it in a factory function.
+
+// When targeting node and ES6 we use `await import ..` in the generated code
+// so the outer function needs to be marked as async.
+async function Module(moduleArg = {}) {
+  var Module = moduleArg;
 // include: shell.js
 // include: minimum_runtime_check.js
 // end include: minimum_runtime_check.js
@@ -14,8 +21,6 @@
 // after the generated code, you will need to define   var Module = {};
 // before the code. Then that object will be used in the code, and you
 // can continue to use Module afterwards as well.
-var Module = typeof Module !== "undefined" ? Module : {};
-
 // Determine the runtime environment we are in. You can customize this by
 // setting the ENVIRONMENT setting at compile time (see settings.js).
 // Attempt to auto-detect the environment
@@ -39,16 +44,7 @@ var quit_ = (status, toThrow) => {
   throw toThrow;
 };
 
-// In MODULARIZE mode _scriptName needs to be captured already at the very top of the page immediately when the page is parsed, so it is generated there
-// before the page load. In non-MODULARIZE modes generate it here.
-var _scriptName = globalThis.document?.currentScript?.src;
-
-if (typeof __filename !== "undefined") {
-  // Node
-  _scriptName = __filename;
-} else if (ENVIRONMENT_IS_WORKER) {
-  _scriptName = self.location.href;
-}
+var _scriptName = import.meta.url;
 
 // `/` should be present at the end if `scriptDirectory` is not empty
 var scriptDirectory = "";
@@ -63,38 +59,7 @@ function locateFile(path) {
 // Hooks that are implemented differently in different runtime environments.
 var readAsync, readBinary;
 
-if (ENVIRONMENT_IS_NODE) {
-  // These modules will usually be used on Node.js. Load them eagerly to avoid
-  // the complexity of lazy-loading.
-  var fs = require("node:fs");
-  scriptDirectory = __dirname + "/";
-  // include: node_shell_read.js
-  readBinary = filename => {
-    // We need to re-wrap `file://` strings to URLs.
-    filename = isFileURI(filename) ? new URL(filename) : filename;
-    var ret = fs.readFileSync(filename);
-    return ret;
-  };
-  readAsync = async (filename, binary = true) => {
-    // See the comment in the `readBinary` function.
-    filename = isFileURI(filename) ? new URL(filename) : filename;
-    var ret = fs.readFileSync(filename, binary ? undefined : "utf8");
-    return ret;
-  };
-  // end include: node_shell_read.js
-  if (process.argv.length > 1) {
-    thisProgram = process.argv[1].replace(/\\/g, "/");
-  }
-  programArgs = process.argv.slice(2);
-  // MODULARIZE will export the module in the proper place outside, we don't need to export here
-  if (typeof module !== "undefined") {
-    module["exports"] = Module;
-  }
-  quit_ = (status, toThrow) => {
-    process.exitCode = status;
-    throw toThrow;
-  };
-} else // Note that this includes Node.js workers when relevant (pthreads is enabled).
+// Note that this includes Node.js workers when relevant (pthreads is enabled).
 // Node.js workers are detected as a combination of ENVIRONMENT_IS_WORKER and
 // ENVIRONMENT_IS_NODE.
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
@@ -113,27 +78,6 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
       };
     }
     readAsync = async url => {
-      // Fetch has some additional restrictions over XHR, like it can't be used on a file:// url.
-      // See https://github.com/github/fetch/pull/92#issuecomment-140665932
-      // Cordova or Electron apps are typically loaded from a file:// url.
-      // So use XHR on webview if URL is a file URL.
-      if (isFileURI(url)) {
-        return new Promise((resolve, reject) => {
-          var xhr = new XMLHttpRequest;
-          xhr.open("GET", url, true);
-          xhr.responseType = "arraybuffer";
-          xhr.onload = () => {
-            if (xhr.status == 200 || (xhr.status == 0 && xhr.response)) {
-              // file URLs can return 0
-              resolve(xhr.response);
-              return;
-            }
-            reject(xhr.status);
-          };
-          xhr.onerror = reject;
-          xhr.send(null);
-        });
-      }
       var response = await fetch(url, {
         credentials: "same-origin"
       });
@@ -319,7 +263,11 @@ function postRun() {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile("runSofa.wasm");
+  if (Module["locateFile"]) {
+    return locateFile("runSofa.wasm");
+  }
+  // Use bundler-friendly `new URL(..., import.meta.url)` pattern; works in browsers too.
+  return new URL("runSofa.wasm", import.meta.url).href;
 }
 
 function getBinarySync(file) {
@@ -356,7 +304,7 @@ async function instantiateArrayBuffer(binaryFile, imports) {
 }
 
 async function instantiateAsync(binary, binaryFile, imports) {
-  if (!binary && !isFileURI(binaryFile) && !ENVIRONMENT_IS_NODE) {
+  if (!binary) {
     try {
       var response = fetch(binaryFile, {
         credentials: "same-origin"
@@ -1458,23 +1406,7 @@ var FS_stdin_getChar_buffer = [];
 var FS_stdin_getChar = () => {
   if (!FS_stdin_getChar_buffer.length) {
     var result = null;
-    if (ENVIRONMENT_IS_NODE) {
-      // we will read data by chunks of BUFSIZE
-      var BUFSIZE = 256;
-      var buf = Buffer.alloc(BUFSIZE);
-      var bytesRead = 0;
-      try {
-        bytesRead = fs.readSync(process.stdin.fd, buf, 0, BUFSIZE);
-      } catch (e) {
-        // Cross-platform differences: on Windows, reading EOF throws an
-        // exception, but on other OSes, reading EOF returns 0. Uniformize
-        // behavior by treating the EOF exception to return 0.
-        if (e.toString().includes("EOF")) bytesRead = 0; else throw e;
-      }
-      if (bytesRead > 0) {
-        result = buf.toString("utf-8", 0, bytesRead);
-      }
-    } else if (globalThis.window?.prompt) {
+    if (globalThis.window?.prompt) {
       // Browser.
       result = window.prompt("Input: ");
       // returns null on cancel
@@ -515289,130 +515221,6 @@ const EOPNOTSUPP = 138;
 
 const EPROTONOSUPPORT = 66;
 
-var ERRNO_CODES = {
-  "EPERM": 63,
-  "ENOENT": 44,
-  "ESRCH": 71,
-  "EINTR": 27,
-  "EIO": 29,
-  "ENXIO": 60,
-  "E2BIG": 1,
-  "ENOEXEC": 45,
-  "EBADF": 8,
-  "ECHILD": 12,
-  "EAGAIN": 6,
-  "EWOULDBLOCK": 6,
-  "ENOMEM": 48,
-  "EACCES": 2,
-  "EFAULT": 21,
-  "ENOTBLK": 105,
-  "EBUSY": 10,
-  "EEXIST": 20,
-  "EXDEV": 75,
-  "ENODEV": 43,
-  "ENOTDIR": 54,
-  "EISDIR": 31,
-  "EINVAL": 28,
-  "ENFILE": 41,
-  "EMFILE": 33,
-  "ENOTTY": 59,
-  "ETXTBSY": 74,
-  "EFBIG": 22,
-  "ENOSPC": 51,
-  "ESPIPE": 70,
-  "EROFS": 69,
-  "EMLINK": 34,
-  "EPIPE": 64,
-  "EDOM": 18,
-  "ERANGE": 68,
-  "ENOMSG": 49,
-  "EIDRM": 24,
-  "ECHRNG": 106,
-  "EL2NSYNC": 156,
-  "EL3HLT": 107,
-  "EL3RST": 108,
-  "ELNRNG": 109,
-  "EUNATCH": 110,
-  "ENOCSI": 111,
-  "EL2HLT": 112,
-  "EDEADLK": 16,
-  "ENOLCK": 46,
-  "EBADE": 113,
-  "EBADR": 114,
-  "EXFULL": 115,
-  "ENOANO": 104,
-  "EBADRQC": 103,
-  "EBADSLT": 102,
-  "EDEADLOCK": 16,
-  "EBFONT": 101,
-  "ENOSTR": 100,
-  "ENODATA": 116,
-  "ETIME": 117,
-  "ENOSR": 118,
-  "ENONET": 119,
-  "ENOPKG": 120,
-  "EREMOTE": 121,
-  "ENOLINK": 47,
-  "EADV": 122,
-  "ESRMNT": 123,
-  "ECOMM": 124,
-  "EPROTO": 65,
-  "EMULTIHOP": 36,
-  "EDOTDOT": 125,
-  "EBADMSG": 9,
-  "ENOTUNIQ": 126,
-  "EBADFD": 127,
-  "EREMCHG": 128,
-  "ELIBACC": 129,
-  "ELIBBAD": 130,
-  "ELIBSCN": 131,
-  "ELIBMAX": 132,
-  "ELIBEXEC": 133,
-  "ENOSYS": 52,
-  "ENOTEMPTY": 55,
-  "ENAMETOOLONG": 37,
-  "ELOOP": 32,
-  "EOPNOTSUPP": 138,
-  "EPFNOSUPPORT": 139,
-  "ECONNRESET": 15,
-  "ENOBUFS": 42,
-  "EAFNOSUPPORT": 5,
-  "EPROTOTYPE": 67,
-  "ENOTSOCK": 57,
-  "ENOPROTOOPT": 50,
-  "ESHUTDOWN": 140,
-  "ECONNREFUSED": 14,
-  "EADDRINUSE": 3,
-  "ECONNABORTED": 13,
-  "ENETUNREACH": 40,
-  "ENETDOWN": 38,
-  "ETIMEDOUT": 73,
-  "EHOSTDOWN": 142,
-  "EHOSTUNREACH": 23,
-  "EINPROGRESS": 26,
-  "EALREADY": 7,
-  "EDESTADDRREQ": 17,
-  "EMSGSIZE": 35,
-  "EPROTONOSUPPORT": 66,
-  "ESOCKTNOSUPPORT": 137,
-  "EADDRNOTAVAIL": 4,
-  "ENETRESET": 39,
-  "EISCONN": 30,
-  "ENOTCONN": 53,
-  "ETOOMANYREFS": 141,
-  "EUSERS": 136,
-  "EDQUOT": 19,
-  "ESTALE": 72,
-  "ENOTSUP": 138,
-  "ENOMEDIUM": 148,
-  "EILSEQ": 25,
-  "EOVERFLOW": 61,
-  "ECANCELED": 11,
-  "ENOTRECOVERABLE": 56,
-  "EOWNERDEAD": 62,
-  "ESTRPIPE": 135
-};
-
 const FIONBIO = 21537;
 
 const FIONREAD = 21531;
@@ -515635,9 +515443,7 @@ var SOCKFS = {
           }
           // If node we use the ws library.
           var WebSocketConstructor;
-          if (ENVIRONMENT_IS_NODE) {
-            WebSocketConstructor = /** @type{(typeof WebSocket)} */ (require("ws"));
-          } else {
+          {
             WebSocketConstructor = WebSocket;
           }
           ws = new WebSocketConstructor(url, opts);
@@ -515719,27 +515525,6 @@ var SOCKFS = {
           data
         });
         SOCKFS.emit("message", sock.stream.fd);
-      }
-      if (ENVIRONMENT_IS_NODE) {
-        // EventEmitter-style events use by ws library objects in Node.js).
-        peer.socket.on("open", handleOpen);
-        peer.socket.on("message", (data, isBinary) => {
-          if (!isBinary) {
-            return;
-          }
-          handleMessage((new Uint8Array(data)).buffer);
-        });
-        peer.socket.on("close", () => SOCKFS.emit("close", sock.stream.fd));
-        peer.socket.on("error", error => {
-          // Although the ws library may pass errors that may be more descriptive than
-          // ECONNREFUSED they are not necessarily the expected error code e.g.
-          // ENOTFOUND on getaddrinfo seems to be node.js specific, so using ECONNREFUSED
-          // is still probably the most useful thing to do.
-          sock.error = ECONNREFUSED;
-          // Used in getsockopt for SOL_SOCKET/SO_ERROR test.
-          SOCKFS.emit("error", [ sock.stream.fd, sock.error, "ECONNREFUSED: Connection refused" ]);
-        });
-        return;
       }
       peer.socket.onopen = handleOpen;
       peer.socket.onclose = () => SOCKFS.emit("close", sock.stream.fd);
@@ -515891,52 +515676,6 @@ var SOCKFS = {
       if (!ENVIRONMENT_IS_NODE) {
         throw new FS.ErrnoError(EOPNOTSUPP);
       }
-      if (sock.server || sock.listening) {
-        throw new FS.ErrnoError(EINVAL);
-      }
-      var WebSocketServer = require("ws").Server;
-      var host = sock.saddr;
-      sock.server = new WebSocketServer({
-        host,
-        port: sock.sport
-      });
-      sock.listening = true;
-      SOCKFS.emit("listen", sock.stream.fd);
-      // Send Event with listen fd.
-      sock.server.on("connection", ws => {
-        if (sock.type === SOCK_STREAM) {
-          var newsock = SOCKFS.createSocket(sock.family, sock.type, sock.protocol);
-          // create a peer on the new socket
-          var peer = SOCKFS.websocket_sock_ops.createPeer(newsock, ws);
-          newsock.daddr = peer.addr;
-          newsock.dport = peer.port;
-          // push to queue for accept to pick up
-          sock.pending.push(newsock);
-          SOCKFS.emit("connection", newsock.stream.fd);
-          // A queued client makes the listening socket readable (POLLIN).
-          sock.stream.node.notifyListeners(POLLRDNORM | POLLIN);
-        } else {
-          // create a peer on the listen socket so calling sendto
-          // with the listen socket and an address will resolve
-          // to the correct client
-          SOCKFS.websocket_sock_ops.createPeer(sock, ws);
-          SOCKFS.emit("connection", sock.stream.fd);
-        }
-      });
-      sock.server.on("close", () => {
-        SOCKFS.emit("close", sock.stream.fd);
-        sock.server = null;
-      });
-      sock.server.on("error", error => {
-        sock.error = (error.code && ERRNO_CODES[error.code]) || EIO;
-        SOCKFS.emit("error", [ sock.stream.fd, sock.error, error.message || error.code || "Server error" ]);
-        if (sock.server) {
-          try {
-            sock.server.close();
-          } catch (e) {}
-          sock.server = null;
-        }
-      });
     },
     accept(listensock) {
       if (listensock.error) {
@@ -518833,65 +518572,7 @@ var __emscripten_runtime_keepalive_clear = () => {
 
 __emscripten_runtime_keepalive_clear.sig = "v";
 
-const SIGALRM = 14;
-
-const SIGFPE = 8;
-
-const SIGHUP = 1;
-
-const SIGINT = 2;
-
-const SIGKILL = 9;
-
-const SIGQUIT = 3;
-
-const SIGTERM = 15;
-
 var __emscripten_system = command => {
-  if (ENVIRONMENT_IS_NODE) {
-    if (!command) return 1;
-    // shell is available
-    var cmdstr = UTF8ToString(command);
-    if (!cmdstr.length) return 0;
-    // this is what glibc seems to do (shell works test?)
-    var cp = require("node:child_process");
-    var ret = cp.spawnSync(cmdstr, [], {
-      shell: true,
-      stdio: "inherit"
-    });
-    var _W_EXITCODE = (ret, sig) => ((ret) << 8 | (sig));
-    // this really only can happen if process is killed by signal
-    if (ret.status === null) {
-      // sadly node doesn't expose such function
-      var signalToNumber = sig => {
-        // implement only the most common ones, and fallback to SIGINT
-        switch (sig) {
-         case "SIGHUP":
-          return SIGHUP;
-
-         case "SIGQUIT":
-          return SIGQUIT;
-
-         case "SIGFPE":
-          return SIGFPE;
-
-         case "SIGKILL":
-          return SIGKILL;
-
-         case "SIGALRM":
-          return SIGALRM;
-
-         case "SIGTERM":
-          return SIGTERM;
-
-         default:
-          return SIGINT;
-        }
-      };
-      return _W_EXITCODE(0, signalToNumber(ret.signal));
-    }
-    return _W_EXITCODE(ret.status, 0);
-  }
   // int system(const char *command);
   // http://pubs.opengroup.org/onlinepubs/000095399/functions/system.html
   // Can't call external programs.
@@ -519294,8 +518975,6 @@ var _emscripten_set_main_loop_timing = (mode, value) => {
       if (globalThis.scheduler) {
         // Some modern browsers implement scheduler.postTask, but not all.
         MainLoop.setImmediate = scheduler.postTask.bind(scheduler);
-      } else if (globalThis.setImmediate) {
-        MainLoop.setImmediate = setImmediate;
       } else {
         // Emulate setImmediate. (note: not a complete polyfill, we don't emulate clearImmediate() to keep code size to minimum, since not needed)
         var setImmediates = [];
@@ -521044,7 +520723,6 @@ var warnOnce = text => {
   warnOnce.shown ||= {};
   if (!warnOnce.shown[text]) {
     warnOnce.shown[text] = 1;
-    if (ENVIRONMENT_IS_NODE) text = "warning: " + text;
     err(text);
   }
 };
@@ -523200,14 +522878,7 @@ var checkWasiClock = clock_id => clock_id >= __WASI_CLOCKID_REALTIME && clock_id
 
 const nowIsMonotonic = 1;
 
-var _emscripten_get_now_res = () => {
-  // return resolution of get_now, in nanoseconds
-  if (ENVIRONMENT_IS_NODE) {
-    return 1;
-  }
-  // Modern environment where performance.now() is supported:
-  return 1e3;
-};
+var _emscripten_get_now_res = () => 1e3;
 
 _emscripten_get_now_res.sig = "d";
 
@@ -527860,8 +527531,6 @@ _random_get.sig = "ipp";
 
 var _segfault = segfault;
 
-var requestFullscreen = Browser.requestFullscreen;
-
 var FS_createPath = (...args) => FS.createPath(...args);
 
 var FS_unlink = (...args) => FS.unlink(...args);
@@ -527931,6 +527600,130 @@ var _emscripten_notify_memory_growth = memoryIndex => {
 };
 
 _emscripten_notify_memory_growth.sig = "vp";
+
+var ERRNO_CODES = {
+  "EPERM": 63,
+  "ENOENT": 44,
+  "ESRCH": 71,
+  "EINTR": 27,
+  "EIO": 29,
+  "ENXIO": 60,
+  "E2BIG": 1,
+  "ENOEXEC": 45,
+  "EBADF": 8,
+  "ECHILD": 12,
+  "EAGAIN": 6,
+  "EWOULDBLOCK": 6,
+  "ENOMEM": 48,
+  "EACCES": 2,
+  "EFAULT": 21,
+  "ENOTBLK": 105,
+  "EBUSY": 10,
+  "EEXIST": 20,
+  "EXDEV": 75,
+  "ENODEV": 43,
+  "ENOTDIR": 54,
+  "EISDIR": 31,
+  "EINVAL": 28,
+  "ENFILE": 41,
+  "EMFILE": 33,
+  "ENOTTY": 59,
+  "ETXTBSY": 74,
+  "EFBIG": 22,
+  "ENOSPC": 51,
+  "ESPIPE": 70,
+  "EROFS": 69,
+  "EMLINK": 34,
+  "EPIPE": 64,
+  "EDOM": 18,
+  "ERANGE": 68,
+  "ENOMSG": 49,
+  "EIDRM": 24,
+  "ECHRNG": 106,
+  "EL2NSYNC": 156,
+  "EL3HLT": 107,
+  "EL3RST": 108,
+  "ELNRNG": 109,
+  "EUNATCH": 110,
+  "ENOCSI": 111,
+  "EL2HLT": 112,
+  "EDEADLK": 16,
+  "ENOLCK": 46,
+  "EBADE": 113,
+  "EBADR": 114,
+  "EXFULL": 115,
+  "ENOANO": 104,
+  "EBADRQC": 103,
+  "EBADSLT": 102,
+  "EDEADLOCK": 16,
+  "EBFONT": 101,
+  "ENOSTR": 100,
+  "ENODATA": 116,
+  "ETIME": 117,
+  "ENOSR": 118,
+  "ENONET": 119,
+  "ENOPKG": 120,
+  "EREMOTE": 121,
+  "ENOLINK": 47,
+  "EADV": 122,
+  "ESRMNT": 123,
+  "ECOMM": 124,
+  "EPROTO": 65,
+  "EMULTIHOP": 36,
+  "EDOTDOT": 125,
+  "EBADMSG": 9,
+  "ENOTUNIQ": 126,
+  "EBADFD": 127,
+  "EREMCHG": 128,
+  "ELIBACC": 129,
+  "ELIBBAD": 130,
+  "ELIBSCN": 131,
+  "ELIBMAX": 132,
+  "ELIBEXEC": 133,
+  "ENOSYS": 52,
+  "ENOTEMPTY": 55,
+  "ENAMETOOLONG": 37,
+  "ELOOP": 32,
+  "EOPNOTSUPP": 138,
+  "EPFNOSUPPORT": 139,
+  "ECONNRESET": 15,
+  "ENOBUFS": 42,
+  "EAFNOSUPPORT": 5,
+  "EPROTOTYPE": 67,
+  "ENOTSOCK": 57,
+  "ENOPROTOOPT": 50,
+  "ESHUTDOWN": 140,
+  "ECONNREFUSED": 14,
+  "EADDRINUSE": 3,
+  "ECONNABORTED": 13,
+  "ENETUNREACH": 40,
+  "ENETDOWN": 38,
+  "ETIMEDOUT": 73,
+  "EHOSTDOWN": 142,
+  "EHOSTUNREACH": 23,
+  "EINPROGRESS": 26,
+  "EALREADY": 7,
+  "EDESTADDRREQ": 17,
+  "EMSGSIZE": 35,
+  "EPROTONOSUPPORT": 66,
+  "ESOCKTNOSUPPORT": 137,
+  "EADDRNOTAVAIL": 4,
+  "ENETRESET": 39,
+  "EISCONN": 30,
+  "ENOTCONN": 53,
+  "ETOOMANYREFS": 141,
+  "EUSERS": 136,
+  "EDQUOT": 19,
+  "ESTALE": 72,
+  "ENOTSUP": 138,
+  "ENOMEDIUM": 148,
+  "EILSEQ": 25,
+  "EOVERFLOW": 61,
+  "ECANCELED": 11,
+  "ENOTRECOVERABLE": 56,
+  "EOWNERDEAD": 62,
+  "ESTRPIPE": 135
+};
 
 var strError = errno => UTF8ToString(_strerror(errno));
 
@@ -529994,7 +529787,7 @@ var _emscripten_request_animation_frame_loop = (cb, userData) => {
 
 _emscripten_request_animation_frame_loop.sig = "vpp";
 
-var _emscripten_get_device_pixel_ratio = () => globalThis.devicePixelRatio ?? 1;
+var _emscripten_get_device_pixel_ratio = () => devicePixelRatio;
 
 _emscripten_get_device_pixel_ratio.sig = "d";
 
@@ -530275,8 +530068,6 @@ var _emscripten_set_timeout_loop = (cb, msecs, userData) => {
         // negative setTimeout as timeout of 0
         // (https://stackoverflow.com/questions/8430966/is-calling-settimeout-with-a-negative-delay-ok)
         var remaining = n - _emscripten_get_now();
-        // Recent revisions of node, however, give TimeoutNegativeWarning
-        remaining = Math.max(0, remaining);
         setTimeout(tick, remaining);
       }
     });
@@ -530298,7 +530089,7 @@ _emscripten_clear_interval.sig = "vi";
 
 var _emscripten_async_call = (func, arg, millis) => {
   var wrapper = () => getWasmTableEntry(func)(arg);
-  if (millis >= 0 || ENVIRONMENT_IS_NODE) {
+  if (millis >= 0) {
     safeSetTimeout(wrapper, millis);
   } else {
     safeRequestAnimationFrame(wrapper);
@@ -530675,6 +530466,8 @@ __Unwind_DeleteException.sig = "vp";
 
 var workerHandles = new HandleAllocator;
 
+var requestFullscreen = Browser.requestFullscreen;
+
 var setCanvasSize = Browser.setCanvasSize;
 
 var createContext = Browser.createContext;
@@ -530731,17 +530524,6 @@ var _emscripten_async_load_script = async (url, onload, onerror) => {
       callUserCallback(getWasmTableEntry(onerror));
     }
   };
-  if (ENVIRONMENT_IS_NODE) {
-    try {
-      var data = await readAsync(url, false);
-      eval(data);
-      loadDone();
-    } catch (e) {
-      err(e);
-      loadError();
-    }
-    return;
-  }
   var script = document.createElement("script");
   script.onload = loadDone;
   script.onerror = loadError;
@@ -537894,8 +537676,6 @@ registerPostMainLoop(() => SDL.audio?.queueNewAudioData?.());
 Module["addRunDependency"] = addRunDependency;
 
 Module["removeRunDependency"] = removeRunDependency;
-
-Module["requestFullscreen"] = requestFullscreen;
 
 Module["FS_preloadFile"] = FS_preloadFile;
 
@@ -608246,6 +608026,16 @@ async function run(args = programArgs) {
 
 var wasmExports;
 
-// With async instantation wasmExports is assigned asynchronously when the
-// instance is received.
-createWasm().then(() => run());
+// In modularize mode the generated code is within a factory function so we
+// can use await here (since it's not top-level-await).
+wasmExports = await createWasm();
+
+await run();
+
+
+  return Module;
+}
+
+// Export using a UMD style export, or ES6 exports if selected
+export default Module;
+
